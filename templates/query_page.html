@@ -1,0 +1,209 @@
+{% extends 'base.html' %} {% block head %}
+<style>
+  #card-query {
+    background: #ffffff;
+    padding: 10px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+    border: 0;
+    margin: 20px 50px 30px;
+  }
+
+  #card-wrap {
+    top: 80px;
+    position: -webkit-sticky;
+    position: sticky;
+    z-index: 99999;
+  }
+
+  #button-query {
+    height: 38px;
+    width: 38px;
+    margin: 0;
+    padding: 0;
+  }
+
+  #card-result {
+    margin-top: 80px;
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+    border: 0;
+    padding: 20px;
+  }
+
+  #card-loss {
+    height: 600px;
+    /* width: 1200px; */
+    margin-top: 20px;
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+    border: 0;
+    padding: 20px;
+  }
+  #content {
+    text-align: center;
+  }
+
+  h5 {
+    margin-top: 20px;
+  }
+
+  td,
+  th,
+  p,
+  span,
+  h5,
+  h6 {
+    cursor: default;
+  }
+</style>
+{% endblock %} {% block body %}
+<div class="container">
+  <div class="row" id="card-wrap">
+    <div class="col-3"></div>
+    <div class="card col-6" id="card-query">
+      <div class="row">
+        <div class="col">
+          <div class="mb-3" id="selct-picture">
+            <input class="form-control" type="file" id="formFile" />
+          </div>
+        </div>
+        <div class="col-1">
+          <button class="btn btn-primary" id="button-query">
+            <img
+              src="../static/img/query_circle.svg"
+              width="30"
+              height="30"
+              alt="query"
+            />
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="col-3"></div>
+  </div>
+
+  <div class="card" id="card-result">
+    <div class="row">
+      <div class="col"></div>
+      <div class="col" id="content">
+        <img id="img" src="" alt="" />
+        <h5 id="model1"></h5>
+        <h5 id="model2"></h5>
+      </div>
+      <div class="col"></div>
+    </div>
+  </div>
+
+  <div class="card" id="card-loss"></div>
+</div>
+
+{% endblock %} {% block js %}
+<script>
+  let card_result = document.getElementById("card-result");
+  let card_loss = document.getElementById("card-loss");
+  card_loss.style.width = card_result.style.width;
+
+  function show_loss(loss) {
+    var chartDom = document.getElementById("card-loss");
+    var myChart = echarts.init(chartDom);
+    var option;
+
+    let index = new Array();
+    for (let i = 1; i <= loss["train_loss"].length; i++) {
+      index[i - 1] = i;
+    }
+    option = {
+      title: {
+        text: "损失函数图",
+      },
+      legend: {
+        data: ["训练集损失", "测试集损失"],
+      },
+      xAxis: {
+        type: "category",
+        data: index,
+      },
+      yAxis: {
+        type: "value",
+        min: 0,
+        max: 3,
+      },
+      series: [
+        {
+          name: "训练集损失",
+          stack: "Total",
+          type: "line",
+          data: loss["train_loss"],
+        },
+
+        {
+          name: "测试集损失",
+          stack: "Total",
+          type: "line",
+          data: loss["eval_loss"],
+        },
+      ],
+    };
+
+    option && myChart.setOption(option);
+  }
+
+  $.ajax({
+    url: "{{ url_for('app_query.get_loss') }}",
+    type: "POST",
+    success: function (response) {
+      loss = JSON.parse(response);
+      show_loss(loss);
+    },
+    error: function (response) {},
+  });
+  let base64 = null;
+  function previewFile(file) {
+    let reader;
+    if (file) {
+      // 创建流对象
+      reader = new FileReader();
+      reader.readAsDataURL(file);
+    }
+    // 捕获 转换完毕
+    reader.onload = function (e) {
+      // 转换后的base64就在e.target.result里面,直接放到img标签的src属性即可
+      let img = document.getElementById("img");
+      img.style.width = "300px";
+      img.style.height = "300px";
+      img.src = e.target.result;
+      base64 = e.target.result;
+    };
+  }
+  document.getElementById("formFile").addEventListener("change", function (e) {
+    let files = e.target.files;
+    if (!files.length) return;
+    previewFile(files[0]);
+  });
+
+  document
+    .getElementById("button-query")
+    .addEventListener("click", function (e) {
+      let formData = new FormData();
+      formData.append("image", base64);
+      $.ajax({
+        url: "{{ url_for('app_query.predict') }}",
+        type: "POST",
+        data: formData,
+        processData: false, // 告诉jQuery不要去处理发送的数据
+        contentType: false, // 告诉jQuery不要去设置Content-Type请求头
+        success: function (response) {
+          res = JSON.parse(response);
+          document.getElementById("model1").innerHTML = res["model1"];
+          document.getElementById("model2").innerHTML = res["model2"];
+        },
+        error: function (response) {},
+      });
+    });
+</script>
+{% endblock %}
