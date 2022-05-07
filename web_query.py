@@ -1,5 +1,4 @@
 from importlib.resources import path
-from pyexpat import model
 import re
 from PIL import Image
 from matplotlib import image
